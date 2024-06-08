@@ -1,0 +1,22 @@
+[package]
+name = "hash_on_write"
+version = "0.1.0"
+edition = "2021"
+
+authors = ["A4-Tacks <wdsjxhno1001@163.com>"]
+description = "A wrapper for storing hash results to avoid running costly hash functions multiple times without modifying the value"
+keywords = ["hash", "cache"]
+license = "MIT"
+repository = "https://github.com/A4-Tacks/hash_on_write-rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dev-dependencies]
+criterion = "0.5.1"
+rand = "0.8.5"
+
+[dependencies]
+
+[[bench]]
+name = "hashmap_bench"
+harness = false
