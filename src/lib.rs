@@ -218,8 +218,8 @@ impl<T, H, S: Default> How<T, H, S> {
     }
 
     /// Consume `self` into wrapped value
-    pub fn into_inner(self) -> T {
-        self.value
+    pub fn into_inner(this: Self) -> T {
+        this.value
     }
 }
 impl<T: ?Sized, H, S: HashStorer> How<T, H, S> {
