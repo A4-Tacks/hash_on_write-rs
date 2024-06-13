@@ -1,6 +1,6 @@
 [package]
 name = "hash_on_write"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 authors = ["A4-Tacks <wdsjxhno1001@163.com>"]
@@ -19,4 +19,8 @@ rand = "0.8.5"
 
 [[bench]]
 name = "hashmap_bench"
+harness = false
+
+[[bench]]
+name = "hashmap_share_state_bench"
 harness = false

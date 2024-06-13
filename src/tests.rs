@@ -13,7 +13,7 @@ fn test_eq() {
     assert!(! How::is_hashed(&a));
     assert!(! How::is_hashed(&b));
 
-    How::make_hash(&mut a);
+    How::make_hash(&a);
     assert!(How::is_hashed(&a));
     assert_eq!(a, b);
 
@@ -29,7 +29,7 @@ fn test_ne() {
 
     assert_ne!(a, b);
 
-    How::make_hash(&mut a);
+    How::make_hash(&a);
     assert_ne!(a, b);
 
     How::make_mut(&mut a);
@@ -55,6 +55,7 @@ fn test_hash() {
 
 #[test]
 fn test_hash_map() {
+    #[allow(clippy::mutable_key_type)]
     let mut map: HashMap<How<&'static str>, i32> = HashMap::new();
 
     let a: How<&str> = "a".into();

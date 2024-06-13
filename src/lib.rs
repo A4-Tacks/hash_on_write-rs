@@ -12,11 +12,15 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering as MOrd},
 };
-use std::collections::hash_map::DefaultHasher;
+use std::{
+    rc::Rc,
+    sync::Arc,
+    collections::hash_map::DefaultHasher,
+};
 
 pub trait HashStorer {
     /// Clear stored hash code to none
-    fn clear(&self);
+    fn clear(&mut self);
 
     /// Get stored hash code
     fn get(&self) -> Option<u64>;
@@ -29,7 +33,7 @@ pub trait HashStorer {
 }
 
 impl HashStorer for Cell<u64> {
-    fn clear(&self) {
+    fn clear(&mut self) {
         self.set(0)
     }
 
@@ -52,7 +56,7 @@ impl HashStorer for Cell<u64> {
     }
 }
 impl HashStorer for AtomicU64 {
-    fn clear(&self) {
+    fn clear(&mut self) {
         self.store(0, MOrd::Relaxed)
     }
 
@@ -72,6 +76,44 @@ impl HashStorer for AtomicU64 {
                 self.store(n, MOrd::Relaxed);
                 n
             })
+    }
+}
+impl<T: HashStorer + Default> HashStorer for Rc<T> {
+    fn get(&self) -> Option<u64> {
+        <T as HashStorer>::get(&**self)
+    }
+
+    fn clear(&mut self) {
+        Rc::get_mut(self)
+            .map(T::clear)
+            .unwrap_or_else(|| {
+                *self = Default::default()
+            })
+    }
+
+    fn get_or_init<F>(&self, f: F) -> u64
+    where F: FnOnce() -> u64,
+    {
+        <T as HashStorer>::get_or_init(&**self, f)
+    }
+}
+impl<T: HashStorer + Default> HashStorer for Arc<T> {
+    fn get(&self) -> Option<u64> {
+        <T as HashStorer>::get(&**self)
+    }
+
+    fn clear(&mut self) {
+        Arc::get_mut(self)
+            .map(T::clear)
+            .unwrap_or_else(|| {
+                *self = Default::default()
+            })
+    }
+
+    fn get_or_init<F>(&self, f: F) -> u64
+    where F: FnOnce() -> u64,
+    {
+        <T as HashStorer>::get_or_init(&**self, f)
     }
 }
 
