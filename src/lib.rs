@@ -135,6 +135,12 @@ impl<T: HashStorer + Default> HashStorer for Arc<T> {
 /// assert!(! How::is_hashed(&x));
 /// assert_eq!(*x, "foo!");
 /// ```
+///
+/// ---
+/// Due to the inability of the stored hashcode to replicate the action of `T::hash,`
+/// it is not possible to implement [`Borrow<T>`]
+///
+/// [`Borrow<T>`]: core::borrow::Borrow
 pub struct How<T: ?Sized, H = DefaultHasher, S = Cell<u64>> {
     _hasher: PhantomData<H>,
     hashcode: S,

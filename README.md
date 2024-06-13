@@ -41,3 +41,7 @@ Found 5 outliers among 100 measurements (5.00%)
   4 (4.00%) high mild
   1 (1.00%) high severe
 ```
+
+This crate is similar to [cachedhash], How to choose it depends on you
+
+[cachedhash]: https://crates.io/crates/cachedhash
