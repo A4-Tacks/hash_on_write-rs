@@ -18,6 +18,7 @@ use std::{
     collections::hash_map::DefaultHasher,
 };
 
+/// storage trait for storing hash status
 pub trait HashStorer {
     /// Clear stored hash code to none
     fn clear(&mut self);
@@ -25,7 +26,7 @@ pub trait HashStorer {
     /// Get stored hash code
     fn get(&self) -> Option<u64>;
 
-    /// if stored hash code is zero, call init func
+    /// if stored hash code is uninit, call init func
     ///
     /// return inited hash code
     fn get_or_init<F>(&self, f: F) -> u64
