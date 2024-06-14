@@ -1,4 +1,5 @@
 use core::{
+    cmp::Ordering,
     fmt::{self, Debug, Formatter},
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -8,7 +9,7 @@ use core::{
 
 use crate::HashStorer;
 
-/// A hash wrapper, hash with behavior like [`How`]
+/// A transparent hash wrapper, hash with behavior like [`How`]
 ///
 /// # Examples
 /// ```
@@ -27,6 +28,55 @@ pub struct Borrowed<T: ?Sized, H, S> {
     _hasher: PhantomData<H>,
     _state: PhantomData<S>,
     pub value: T,
+}
+impl<T, H, S> Borrowed<T, H, S> {
+    /// Create a [`Borrowed`]
+    ///
+    /// # Examples
+    /// ```
+    /// # use hash_on_write::Borrowed;
+    /// let x: Borrowed<i32, (), ()> = Borrowed::new(2);
+    /// assert_eq!(x.value, 2);
+    /// ```
+    ///
+    /// [`Borrowed`]: crate::Borrowed
+    pub fn new(value: T) -> Self {
+        Self {
+            _hasher: PhantomData,
+            _state: PhantomData,
+            value,
+        }
+    }
+}
+impl<T: ?Sized, H, S> Borrowed<T, H, S> {
+    /// transmute reference to [`Borrowed`] reference
+    ///
+    /// # Examples
+    /// ```
+    /// # use hash_on_write::Borrowed;
+    /// let x: &Borrowed<str, (), ()> = Borrowed::make_ref("foo");
+    /// assert_eq!(x.value, *"foo");
+    /// ```
+    ///
+    /// [`Borrowed`]: crate::Borrowed
+    pub fn make_ref(value: &T) -> &Self {
+        unsafe { transmute(value) }
+    }
+
+    /// transmute mutable reference to [`Borrowed`] mutable reference
+    ///
+    /// # Examples
+    /// ```
+    /// # use hash_on_write::Borrowed;
+    /// let mut arr = [1, 2];
+    /// let x: &mut Borrowed<[i32], (), ()> = Borrowed::make_mut(&mut arr);
+    /// assert_eq!(x.value, [1, 2]);
+    /// ```
+    ///
+    /// [`Borrowed`]: crate::Borrowed
+    pub fn make_mut(value: &mut T) -> &mut Self {
+        unsafe { transmute(value) }
+    }
 }
 impl<T: ?Sized, H, S> AsRef<Self> for Borrowed<T, H, S> {
     fn as_ref(&self) -> &Self {
@@ -48,33 +98,6 @@ impl<T: ?Sized, H, S> AsMut<T> for Borrowed<T, H, S> {
         self
     }
 }
-impl<T, H, S> Borrowed<T, H, S> {
-    /// Create a [`Borrowed`]
-    ///
-    /// [`Borrowed`]: crate::Borrowed
-    pub fn new(value: T) -> Self {
-        Self {
-            _hasher: PhantomData,
-            _state: PhantomData,
-            value,
-        }
-    }
-}
-impl<T: ?Sized, H, S> Borrowed<T, H, S> {
-    /// transmute reference to [`Borrowed`] reference
-    ///
-    /// [`Borrowed`]: crate::Borrowed
-    pub fn make_ref(value: &T) -> &Self {
-        unsafe { transmute(value) }
-    }
-
-    /// transmute mutable reference to [`Borrowed`] mutable reference
-    ///
-    /// [`Borrowed`]: crate::Borrowed
-    pub fn make_mut(value: &mut T) -> &mut Self {
-        unsafe { transmute(value) }
-    }
-}
 impl<T: ?Sized + Debug, H, S> Debug for Borrowed<T, H, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Borrowed")
@@ -93,13 +116,23 @@ impl<T: ?Sized + PartialEq, H, S> PartialEq for Borrowed<T, H, S> {
         self.value.eq(&other.value)
     }
 }
+impl<T: ?Sized + PartialEq, H, S> PartialEq<T> for Borrowed<T, H, S> {
+    fn eq(&self, other: &T) -> bool {
+        **self == *other
+    }
+}
 impl<T: ?Sized + PartialOrd, H, S> PartialOrd for Borrowed<T, H, S> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.value.partial_cmp(&other.value)
     }
 }
+impl<T: ?Sized + PartialOrd, H, S> PartialOrd<T> for Borrowed<T, H, S> {
+    fn partial_cmp(&self, other: &T) -> Option<Ordering> {
+        (**self).partial_cmp(other)
+    }
+}
 impl<T: ?Sized + Ord, H, S> Ord for Borrowed<T, H, S> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.value.cmp(&other.value)
     }
 }
