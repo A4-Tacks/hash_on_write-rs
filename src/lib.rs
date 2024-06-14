@@ -14,7 +14,13 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicU64, Ordering as MOrd},
+    sync::atomic::{
+        AtomicU8,
+        AtomicU16,
+        AtomicU32,
+        AtomicU64,
+        Ordering as MOrd
+    },
 };
 use std::{
     rc::Rc,
@@ -22,31 +28,52 @@ use std::{
     collections::hash_map::DefaultHasher,
 };
 
+pub trait FromHash: Sized {
+    const ZERO_MAPPED: Self;
+
+    fn from_hash(hash_code: u64) -> Self;
+}
+macro_rules! impl_trunc_hash {
+    ($($ty:ty),*) => {
+        $(
+            impl FromHash for $ty {
+                const ZERO_MAPPED: Self = Self::MAX >> 2;
+
+                #[inline]
+                fn from_hash(hash_code: u64) -> Self {
+                    hash_code as $ty
+                }
+            }
+        )*
+    };
+}
+impl_trunc_hash!(u8, u16, u32, u64);
+
 /// Adapters that do not store hash values
 ///
 /// Hashing occurs every time, just like [`How`] doesn't exist
 ///
 /// [`How`]: crate::How
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NoneStorer;
-
-const ZERO_MAPPED: u64 = u64::MAX >> 2;
+pub struct NoneStorer<T = u64>(PhantomData<T>);
 
 /// storage trait for storing hash status
 pub trait HashStorer {
+    type HashCode: Hash + FromHash + Eq;
+
     /// Clear stored hash code to none
     fn clear(&mut self);
 
     /// Get stored hash code
-    fn get(&self) -> Option<u64>;
+    fn get(&self) -> Option<Self::HashCode>;
 
     /// if stored hash code is uninit, call init func
     ///
     /// return inited hash code
-    fn get_or_init<F>(&self, f: F) -> u64
-    where F: FnOnce() -> u64;
+    fn get_or_init<F>(&self, f: F) -> Self::HashCode
+    where F: FnOnce() -> Self::HashCode;
 
-    fn hash_one<T, H>(value: &T) -> u64
+    fn hash_one<T, H>(value: &T) -> Self::HashCode
     where T: ?Sized + Hash,
           H: Hasher + Default,
           Self: Default,
@@ -55,60 +82,82 @@ pub trait HashStorer {
             .get_or_init(|| {
                 let mut hasher = H::default();
                 value.hash(&mut hasher);
-                hasher.finish()
+                FromHash::from_hash(hasher.finish())
             })
     }
 }
 
-impl HashStorer for Cell<u64> {
-    fn clear(&mut self) {
-        self.set(0)
-    }
+macro_rules! impl_cell_storers {
+    (@impl $ty:ty, $aty:ty) => {
+        impl HashStorer for Cell<$ty> {
+            type HashCode = $ty;
 
-    fn get(&self) -> Option<u64> {
-        let n = self.get();
-        if n == 0 { return None; }
-        Some(n)
-    }
+            fn clear(&mut self) {
+                self.set(0)
+            }
 
-    fn get_or_init<F>(&self, f: F) -> u64
-    where F: FnOnce() -> u64,
-    {
-        HashStorer::get(self)
-            .unwrap_or_else(|| {
-                let mut n = f();
-                if n == 0 { n = ZERO_MAPPED }
-                self.set(n);
-                n
-            })
-    }
+            fn get(&self) -> Option<$ty> {
+                let n = self.get();
+                if n == 0 { return None; }
+                Some(n)
+            }
+
+            fn get_or_init<F>(&self, f: F) -> $ty
+            where F: FnOnce() -> $ty,
+            {
+                HashStorer::get(self)
+                    .unwrap_or_else(|| {
+                        let mut n = f();
+                        if n == 0 { n = Self::HashCode::ZERO_MAPPED }
+                        self.set(n);
+                        n
+                    })
+            }
+        }
+
+        impl HashStorer for $aty {
+            type HashCode = $ty;
+
+            fn clear(&mut self) {
+                self.store(0, MOrd::Relaxed)
+            }
+
+            fn get(&self) -> Option<$ty> {
+                let n = self.load(MOrd::Relaxed);
+                if n == 0 { return None; }
+                Some(n)
+            }
+
+            fn get_or_init<F>(&self, f: F) -> $ty
+            where F: FnOnce() -> $ty,
+            {
+                HashStorer::get(self)
+                    .unwrap_or_else(|| {
+                        let mut n = f();
+                        if n == 0 { n = Self::HashCode::ZERO_MAPPED }
+                        self.store(n, MOrd::Relaxed);
+                        n
+                    })
+            }
+        }
+    };
+    ($($ty:ty => $aty:ty),* $(,)?) => {
+        $(
+            impl_cell_storers!(@impl $ty, $aty);
+        )*
+    };
 }
-impl HashStorer for AtomicU64 {
-    fn clear(&mut self) {
-        self.store(0, MOrd::Relaxed)
-    }
-
-    fn get(&self) -> Option<u64> {
-        let n = self.load(MOrd::Relaxed);
-        if n == 0 { return None; }
-        Some(n)
-    }
-
-    fn get_or_init<F>(&self, f: F) -> u64
-    where F: FnOnce() -> u64,
-    {
-        HashStorer::get(self)
-            .unwrap_or_else(|| {
-                let mut n = f();
-                if n == 0 { n = ZERO_MAPPED }
-                self.store(n, MOrd::Relaxed);
-                n
-            })
-    }
+impl_cell_storers! {
+    u8  => AtomicU8,
+    u16 => AtomicU16,
+    u32 => AtomicU32,
+    u64 => AtomicU64,
 }
-impl HashStorer for NoneStorer {
+impl<T: Hash + FromHash + Eq> HashStorer for NoneStorer<T> {
+    type HashCode = T;
+
     #[inline]
-    fn get(&self) -> Option<u64> {
+    fn get(&self) -> Option<T> {
         None
     }
 
@@ -116,14 +165,16 @@ impl HashStorer for NoneStorer {
     fn clear(&mut self) { }
 
     #[inline]
-    fn get_or_init<F>(&self, f: F) -> u64
-    where F: FnOnce() -> u64,
+    fn get_or_init<F>(&self, f: F) -> T
+    where F: FnOnce() -> T,
     {
         f()
     }
 }
 impl<T: HashStorer + Default> HashStorer for Rc<T> {
-    fn get(&self) -> Option<u64> {
+    type HashCode = T::HashCode;
+
+    fn get(&self) -> Option<T::HashCode> {
         <T as HashStorer>::get(&**self)
     }
 
@@ -135,13 +186,13 @@ impl<T: HashStorer + Default> HashStorer for Rc<T> {
             })
     }
 
-    fn get_or_init<F>(&self, f: F) -> u64
-    where F: FnOnce() -> u64,
+    fn get_or_init<F>(&self, f: F) -> T::HashCode
+    where F: FnOnce() -> T::HashCode,
     {
         <T as HashStorer>::get_or_init(&**self, f)
     }
 
-    fn hash_one<T1, H>(value: &T1) -> u64
+    fn hash_one<T1, H>(value: &T1) -> T::HashCode
     where T1: ?Sized + Hash,
           H: Hasher + Default,
           Self: Default,
@@ -150,7 +201,9 @@ impl<T: HashStorer + Default> HashStorer for Rc<T> {
     }
 }
 impl<T: HashStorer + Default> HashStorer for Arc<T> {
-    fn get(&self) -> Option<u64> {
+    type HashCode = T::HashCode;
+
+    fn get(&self) -> Option<T::HashCode> {
         <T as HashStorer>::get(&**self)
     }
 
@@ -162,13 +215,13 @@ impl<T: HashStorer + Default> HashStorer for Arc<T> {
             })
     }
 
-    fn get_or_init<F>(&self, f: F) -> u64
-    where F: FnOnce() -> u64,
+    fn get_or_init<F>(&self, f: F) -> T::HashCode
+    where F: FnOnce() -> T::HashCode,
     {
         <T as HashStorer>::get_or_init(&**self, f)
     }
 
-    fn hash_one<T1, H>(value: &T1) -> u64
+    fn hash_one<T1, H>(value: &T1) -> T::HashCode
     where T1: ?Sized + Hash,
           H: Hasher + Default,
           Self: Default,
@@ -369,7 +422,7 @@ impl<T: ?Sized, H, S: HashStorer> How<T, H, S> {
     }
 
     /// Get hash cache status
-    pub fn hash_code(this: &Self) -> Option<u64> {
+    pub fn hash_code(this: &Self) -> Option<S::HashCode> {
         this.hashcode.get()
     }
 
@@ -385,11 +438,11 @@ where T: ?Sized + Hash,
       S: HashStorer,
 {
     /// Get or init hash cache
-    pub fn make_hash(this: &Self) -> u64 {
+    pub fn make_hash(this: &Self) -> S::HashCode {
         this.hashcode.get_or_init(|| {
             let mut inner_hasher = H::default();
             this.value.hash(&mut inner_hasher);
-            inner_hasher.finish()
+            FromHash::from_hash(inner_hasher.finish())
         })
     }
 }
