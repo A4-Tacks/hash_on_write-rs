@@ -180,7 +180,7 @@ pub struct How<T: ?Sized, H = DefaultHasher, S = Cell<u64>> {
     value: T,
 }
 impl<T, H, S> Default for How<T, H, S>
-where T: ?Sized + Default,
+where T: Default,
       S: Default,
 {
     fn default() -> Self {
@@ -254,9 +254,19 @@ impl<T: ?Sized + PartialEq, H, S: HashStorer> PartialEq for How<T, H, S> {
             && self.value == other.value
     }
 }
+impl<T: ?Sized + PartialEq, H, S> PartialEq<T> for How<T, H, S> {
+    fn eq(&self, other: &T) -> bool {
+        **self == *other
+    }
+}
 impl<T: ?Sized + PartialOrd, H, S: HashStorer> PartialOrd for How<T, H, S> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.value.partial_cmp(&other.value)
+    }
+}
+impl<T: ?Sized + PartialOrd, H, S> PartialOrd<T> for How<T, H, S> {
+    fn partial_cmp(&self, other: &T) -> Option<Ordering> {
+        (**self).partial_cmp(other)
     }
 }
 impl<T: ?Sized, H, S> Deref for How<T, H, S> {
@@ -314,7 +324,9 @@ impl<T, H, S: Default> How<T, H, S> {
             value,
         }
     }
+}
 
+impl<T, H, S> How<T, H, S> {
     /// Consume `self` into wrapped value
     pub fn into_inner(this: Self) -> T {
         this.value
