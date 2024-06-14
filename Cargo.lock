@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "hash_on_write"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "criterion",
  "rand",

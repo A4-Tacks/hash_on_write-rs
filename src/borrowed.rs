@@ -1,11 +1,13 @@
 use core::{
     cmp::Ordering,
+    cell::Cell,
     fmt::{self, Debug, Formatter},
     hash::{Hash, Hasher},
     marker::PhantomData,
     mem::transmute,
     ops::{Deref, DerefMut},
 };
+use std::collections::hash_map::DefaultHasher;
 
 use crate::HashStorer;
 
@@ -24,7 +26,7 @@ use crate::HashStorer;
 ///
 /// [`How`]: crate::How
 #[repr(transparent)]
-pub struct Borrowed<T: ?Sized, H, S> {
+pub struct Borrowed<T: ?Sized, H = DefaultHasher, S = Cell<u64>> {
     _hasher: PhantomData<H>,
     _state: PhantomData<S>,
     pub value: T,

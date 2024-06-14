@@ -22,6 +22,14 @@ use std::{
     collections::hash_map::DefaultHasher,
 };
 
+/// Adapters that do not store hash values
+///
+/// Hashing occurs every time, just like [`How`] doesn't exist
+///
+/// [`How`]: crate::How
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NoneStorer;
+
 /// storage trait for storing hash status
 pub trait HashStorer {
     /// Clear stored hash code to none
@@ -94,6 +102,19 @@ impl HashStorer for AtomicU64 {
                 self.store(n, MOrd::Relaxed);
                 n
             })
+    }
+}
+impl HashStorer for NoneStorer {
+    fn get(&self) -> Option<u64> {
+        None
+    }
+
+    fn clear(&mut self) { }
+
+    fn get_or_init<F>(&self, f: F) -> u64
+    where F: FnOnce() -> u64,
+    {
+        f()
     }
 }
 impl<T: HashStorer + Default> HashStorer for Rc<T> {

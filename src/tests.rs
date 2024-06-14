@@ -1,9 +1,13 @@
 use std::{
-    collections::{hash_map::RandomState, HashMap},
+    collections::{
+        hash_map::{DefaultHasher, RandomState},
+        HashMap,
+    },
     hash::BuildHasher,
+    cell::Cell,
 };
 
-use crate::Borrowed;
+use crate::{Borrowed, NoneStorer};
 
 use super::How;
 
@@ -76,4 +80,42 @@ fn test_hash_map() {
 
     let x: HashMap<How<String>, ()> = HashMap::new();
     assert!(x.get(Borrowed::make_ref("a")).is_none());
+}
+
+#[test]
+fn test_none_store() {
+    type IHow<T> = How<T, DefaultHasher, Cell<u64>>;
+    type NHow<T> = How<T, DefaultHasher, NoneStorer>;
+    type IBorrowed<T> = Borrowed<T, DefaultHasher, Cell<u64>>;
+    type NBorrowed<T> = Borrowed<T, DefaultHasher, NoneStorer>;
+
+    let datas = [
+        "foo",
+        "",
+        "test",
+        "bar",
+        "a",
+        "egg",
+        "examples",
+        "BIG",
+    ];
+
+    for _ in 0..5000 {
+        let bh = RandomState::new();
+
+        for data in datas {
+            let a = IHow::new(data);
+            let b = NHow::new(data);
+
+            assert_eq!(bh.hash_one(&a), bh.hash_one(&b));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(NBorrowed::new(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(NBorrowed::new(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(IBorrowed::new(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(IBorrowed::new(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(NBorrowed::make_ref(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(NBorrowed::make_ref(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(IBorrowed::make_ref(data)));
+            assert_eq!(bh.hash_one(&a), bh.hash_one(IBorrowed::make_ref(data)));
+        }
+    }
 }
