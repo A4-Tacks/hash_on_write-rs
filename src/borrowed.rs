@@ -42,6 +42,7 @@ impl<T, H, S> Borrowed<T, H, S> {
     /// ```
     ///
     /// [`Borrowed`]: crate::Borrowed
+    #[inline]
     pub fn new(value: T) -> Self {
         Self {
             _hasher: PhantomData,
@@ -61,6 +62,7 @@ impl<T: ?Sized, H, S> Borrowed<T, H, S> {
     /// ```
     ///
     /// [`Borrowed`]: crate::Borrowed
+    #[inline]
     pub fn make_ref(value: &T) -> &Self {
         unsafe { transmute(value) }
     }
@@ -76,6 +78,7 @@ impl<T: ?Sized, H, S> Borrowed<T, H, S> {
     /// ```
     ///
     /// [`Borrowed`]: crate::Borrowed
+    #[inline]
     pub fn make_mut(value: &mut T) -> &mut Self {
         unsafe { transmute(value) }
     }

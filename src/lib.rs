@@ -30,6 +30,8 @@ use std::{
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NoneStorer;
 
+const ZERO_MAPPED: u64 = u64::MAX >> 2;
+
 /// storage trait for storing hash status
 pub trait HashStorer {
     /// Clear stored hash code to none
@@ -75,7 +77,7 @@ impl HashStorer for Cell<u64> {
         HashStorer::get(self)
             .unwrap_or_else(|| {
                 let mut n = f();
-                if n == 0 { n = u64::MAX >> 2 }
+                if n == 0 { n = ZERO_MAPPED }
                 self.set(n);
                 n
             })
@@ -98,19 +100,22 @@ impl HashStorer for AtomicU64 {
         HashStorer::get(self)
             .unwrap_or_else(|| {
                 let mut n = f();
-                if n == 0 { n = u64::MAX >> 2 }
+                if n == 0 { n = ZERO_MAPPED }
                 self.store(n, MOrd::Relaxed);
                 n
             })
     }
 }
 impl HashStorer for NoneStorer {
+    #[inline]
     fn get(&self) -> Option<u64> {
         None
     }
 
+    #[inline]
     fn clear(&mut self) { }
 
+    #[inline]
     fn get_or_init<F>(&self, f: F) -> u64
     where F: FnOnce() -> u64,
     {
@@ -311,6 +316,7 @@ where T: ?Sized + Hash,
       IH: Hasher + Default,
       S: HashStorer,
 {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         Self::make_hash(self)
             .hash(state)
@@ -320,6 +326,7 @@ impl<T, H, S> From<T> for How<T, H, S>
 where H: Hasher + Default,
       S: HashStorer + Default,
 {
+    #[inline]
     fn from(value: T) -> Self {
         Self::new(value)
     }
@@ -338,6 +345,7 @@ impl<T> How<T> {
 }
 impl<T, H, S: Default> How<T, H, S> {
     /// New a wrapped value
+    #[inline]
     pub fn new(value: T) -> Self {
         How {
             _hasher: PhantomData,
