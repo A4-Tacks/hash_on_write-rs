@@ -2,8 +2,12 @@
 
 #[cfg(test)]
 mod tests;
+mod borrowed;
+
+pub use borrowed::Borrowed;
 
 use core::{
+    borrow::{Borrow, BorrowMut},
     cell::Cell,
     cmp::Ordering,
     fmt::{self, Debug},
@@ -31,6 +35,19 @@ pub trait HashStorer {
     /// return inited hash code
     fn get_or_init<F>(&self, f: F) -> u64
     where F: FnOnce() -> u64;
+
+    fn hash_one<T, H>(value: &T) -> u64
+    where T: ?Sized + Hash,
+          H: Hasher + Default,
+          Self: Default,
+    {
+        Self::default()
+            .get_or_init(|| {
+                let mut hasher = H::default();
+                value.hash(&mut hasher);
+                hasher.finish()
+            })
+    }
 }
 
 impl HashStorer for Cell<u64> {
@@ -97,6 +114,14 @@ impl<T: HashStorer + Default> HashStorer for Rc<T> {
     {
         <T as HashStorer>::get_or_init(&**self, f)
     }
+
+    fn hash_one<T1, H>(value: &T1) -> u64
+    where T1: ?Sized + Hash,
+          H: Hasher + Default,
+          Self: Default,
+    {
+        T::hash_one::<T1, H>(value)
+    }
 }
 impl<T: HashStorer + Default> HashStorer for Arc<T> {
     fn get(&self) -> Option<u64> {
@@ -115,6 +140,14 @@ impl<T: HashStorer + Default> HashStorer for Arc<T> {
     where F: FnOnce() -> u64,
     {
         <T as HashStorer>::get_or_init(&**self, f)
+    }
+
+    fn hash_one<T1, H>(value: &T1) -> u64
+    where T1: ?Sized + Hash,
+          H: Hasher + Default,
+          Self: Default,
+    {
+        T::hash_one::<T1, H>(value)
     }
 }
 
@@ -172,6 +205,22 @@ impl<T: ?Sized, H, S> AsRef<Self> for How<T, H, S> {
 impl<T: ?Sized, H, S> AsMut<Self> for How<T, H, S> {
     fn as_mut(&mut self) -> &mut Self {
         self
+    }
+}
+impl<T, Q, H, S> Borrow<Borrowed<Q, H, S>> for How<T, H, S>
+where T: ?Sized + Borrow<Q>,
+      Q: ?Sized,
+{
+    fn borrow(&self) -> &Borrowed<Q, H, S> {
+        Borrowed::make_ref(self.value.borrow())
+    }
+}
+impl<T, Q, H, S> BorrowMut<Borrowed<Q, H, S>> for How<T, H, S>
+where T: ?Sized + BorrowMut<Q>,
+      Q: ?Sized,
+{
+    fn borrow_mut(&mut self) -> &mut Borrowed<Q, H, S> {
+        Borrowed::make_mut(self.value.borrow_mut())
     }
 }
 impl<T: ?Sized + Debug, H, S: Debug> Debug for How<T, H, S> {

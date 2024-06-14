@@ -3,6 +3,8 @@ use std::{
     hash::BuildHasher,
 };
 
+use crate::Borrowed;
+
 use super::How;
 
 #[test]
@@ -69,6 +71,9 @@ fn test_hash_map() {
     assert_eq!(map.insert("c".into(), -3), Some(3));
 
     assert_eq!(map.get(&a), Some(&-1));
-    assert_eq!(map.get(&"b".into()), Some(&-2));
-    assert_eq!(map.get(&"c".into()), Some(&-3));
+    assert_eq!(map.get(&Borrowed::new("b")), Some(&-2));
+    assert_eq!(map.get(&Borrowed::new("c")), Some(&-3));
+
+    let x: HashMap<How<String>, ()> = HashMap::new();
+    assert!(x.get(Borrowed::make_ref("a")).is_none());
 }
