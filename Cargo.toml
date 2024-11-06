@@ -1,11 +1,12 @@
 [package]
 name = "hash_on_write"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2021"
 
 authors = ["A4-Tacks <wdsjxhno1001@163.com>"]
 description = "A wrapper for storing hash results to avoid running costly hash functions multiple times without modifying the value"
 keywords = ["hash", "hashing", "cache", "wrapper", "performance"]
+categories = ["caching"]
 license = "MIT"
 repository = "https://github.com/A4-Tacks/hash_on_write-rs"
 
