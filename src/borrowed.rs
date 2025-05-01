@@ -110,7 +110,7 @@ impl<T: ?Sized + Debug, H, S> Debug for Borrowed<T, H, S> {
             .finish()
     }
 }
-impl<T: ?Sized + Copy, H, S> Copy for Borrowed<T, H, S> { }
+impl<T: Copy, H, S> Copy for Borrowed<T, H, S> { }
 impl<T: Clone, H, S> Clone for Borrowed<T, H, S> {
     fn clone(&self) -> Self {
         Self::new(self.value.clone())

@@ -257,7 +257,7 @@ impl<T: ?Sized + Debug, H, S: Debug> Debug for How<T, H, S> {
             .finish()
     }
 }
-impl<T: ?Sized + Clone, H, S: Clone> Clone for How<T, H, S> {
+impl<T: Clone, H, S: Clone> Clone for How<T, H, S> {
     fn clone(&self) -> Self {
         Self {
             _hasher: PhantomData,
@@ -276,7 +276,7 @@ impl<T: ?Sized + PartialEq, H, S: HashStorer> PartialEq for How<T, H, S> {
     fn eq(&self, other: &Self) -> bool {
         self.hashcode.get()
             .zip(other.hashcode.get())
-            .map_or(true, |(a, b)| a == b)
+            .is_none_or(|(a, b)| a == b)
             && self.value == other.value
     }
 }
